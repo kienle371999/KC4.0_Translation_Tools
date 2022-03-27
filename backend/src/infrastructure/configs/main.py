@@ -395,8 +395,8 @@ class AppConfig(BaseModel):
             TRIGGER=BackgroundTaskTriggerEnum.interval.value,
             CONFIG=dict(seconds=0, max_instances=1),
         ),
-        "test_translate_file_created_by_private_request.translate_content.docx": BackgroundTask(
-        ID="test_translate_file_created_by_private_request.translate_content.docx",
+        "test_translate_file_created_by_public_request": BackgroundTask(
+        ID="test_translate_file_created_by_public_request",
         TRIGGER=BackgroundTaskTriggerEnum.interval.value,
         CONFIG=dict(seconds=0, max_instances=1),
         ),
