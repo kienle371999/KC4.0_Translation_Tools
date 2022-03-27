@@ -394,7 +394,12 @@ class AppConfig(BaseModel):
             ID="test_send_transactino_email",
             TRIGGER=BackgroundTaskTriggerEnum.interval.value,
             CONFIG=dict(seconds=0, max_instances=1),
-        )
+        ),
+        "test_translate_file_created_by_private_request.translate_content.docx": BackgroundTask(
+        ID="test_translate_file_created_by_private_request.translate_content.docx",
+        TRIGGER=BackgroundTaskTriggerEnum.interval.value,
+        CONFIG=dict(seconds=0, max_instances=1),
+        ),
     }   
 
     MAX_QUERY_SIZE = 10
