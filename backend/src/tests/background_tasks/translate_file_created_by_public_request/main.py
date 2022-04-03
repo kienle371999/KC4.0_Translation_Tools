@@ -1,4 +1,6 @@
 from core.utils.common import chunk_arr
+from infrastructure.configs.task import StepStatusEnum, CreatorTypeEnum
+from sqlite3 import Date
 from core.utils.document import check_if_paragraph_has_text, get_common_style
 from core.utils.file import get_doc_paragraphs, get_full_path
 from datetime import datetime
@@ -17,6 +19,7 @@ from modules.translation_request.database.translation_history.repository import 
 from modules.translation_request.database.translation_request.repository import TranslationRequestRepository, TranslationRequestEntity, TranslationRequestProps
 from modules.translation_request.database.translation_request_result.repository import TranslationRequestResultRepository, TranslationRequestResultEntity, TranslationRequestResultProps
 from typing import List
+from core.value_objects.id import ID
 from uuid import UUID
 import aiohttp
 import asyncio
@@ -45,308 +48,239 @@ logger = Logger(
 
 
 async def test_read_task_result():
-    print('=====================test_read_task_result=====================')
-    seed = 31415
-    random.seed(seed)
-    print(f'Random seed is {seed}')
 
+    print("===>>>>>>> Test read_task_result <<<<<<<<<<<<===")
+    print("TEST 1")
     try:
-        tasks: List[TranslationRequestEntity]
-        tasks_result: List[TranslationRequestResultEntity]
-        translations_history: List[TranslationHistoryEntity]
+        valid_tasks_mapper, invalid_tasks_mapper = await read_task_result([], [], [])
+        print("=== Test read_task_result in testcase 1: TRUE  ===")
+    except Exception as e:
+        print(e)
+        print("=== Test read_task_result in testcase 1: FALSE ===")
 
-        # Get task from database
-        tasks = await translation_request_repository.find_many(
-            params={
-                'task_name': {
-                    '$in': [TranslationTaskNameEnum.public_file_translation.value, TranslationTaskNameEnum.private_file_translation.value]
-                }
-            }
+    print("TEST 2")
+    try:
+        # print("task init: ")
+        new_request = TranslationRequestEntity(
+            TranslationRequestProps(
+                creator_id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
+                creator_type="end_user",
+                task_name='private_plain_text_translation',
+                step_status="closed",
+                current_step="detecting_language",
+                create_at=Date(2022, 3, 24),
+                _cls="LanguageDetectionRequestOrmEntity"
+            )
         )
+        tran = TranslationRequestResultEntity(
+            TranslationRequestResultProps(
+                task_id=new_request.id,
+                step=new_request.props.current_step,
+            )
+        )
+        tasks = [tran]
 
-        tasks_id = list(map(lambda task: task.id.value, tasks))
+        # print("task_res init: ")
+        new_request_res = TranslationRequestEntity(
+            TranslationRequestProps(
+                id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
+                creator_id=ID("377b5a56-51bd-40e7-8b52-73060e5f8c32"),
+                creator_type="end_user",
+                task_name='private_plain_text_translation',
+                step_status="closed",
+                current_step="detecting_language",
+                create_at=Date(2022, 3, 24),
+                update_at=Date(2022, 3, 24),
+                _cls="LanguageDetectionRequestOrmEntity",
+                file_path="1648110413183__660c1f23-6d26-41e8-a5dd-736c44248d0e.json"
+            )
+        )
+        task_res = TranslationRequestResultEntity(
+            TranslationRequestResultProps(
+                task_id=new_request_res.id,
+                step=new_request_res.props.current_step
+            )
+        )
+        # print(task_res)
+        tasks_result = [task_res]
 
-        print(f'Total tasks: {len(tasks)}')
-        print(f'Total test is total tasks: {len(tasks)}')
+        # print("history init ")
+        new_request_his = TranslationRequestEntity(
+            TranslationRequestProps(
+                creator_id=ID("76b76d60-2682-4c53-b092-c8262a353dba"),
+                creator_type=CreatorTypeEnum.end_user.value,
+                task_name=TranslationTaskNameEnum.private_plain_text_translation.value,
+                step_status=StepStatusEnum.not_yet_processed.value,
+                current_step=TranslationTaskStepEnum.detecting_language.value
+            )
+        )
+        tran_history = TranslationHistoryEntity(
+            TranslationHistoryProps(
+                creator_id=new_request_his.props.creator_id,
+                task_id=new_request_his.id,
+                translation_type=new_request_his.props.task_name,
+                status=TranslationHistoryStatus.translating.value,
+                file_path="1648110429829__89aa81e5-6dca-4589-afc4-af2f56d9cb9f.json"
+            )
+        )
+        translations_history = [tran_history]
+        print("INIT ARGUMENT SUCCESS")
 
-        total_test = 0
-        success_test = 0
-
-        for task_id in tasks_id:
-            try:
-                # Get translation request result and transaltion history
-                tasks_result_and_trans_history_req = [
-                    translation_request_result_repository.find_many(
-                        params=dict(
-                            task_id={
-                                '$in': list(map(lambda t: UUID(t), [task_id]))
-                            },
-                            step=TranslationTaskStepEnum.translating_language.value
-                        )
-                    ),
-                    translation_history_repository.find_many(
-                        params=dict(
-                            task_id={
-                                '$in': list(map(lambda t: UUID(t), [task_id]))
-                            }
-                        )
-                    )
-                ]
-
-                tasks_result, translations_history = await asyncio.gather(*tasks_result_and_trans_history_req)
-
-                # Modify tasks result and translation history
-                for trans_his in translations_history:
-                    trans_his.props.status = TranslationHistoryStatus.translating.value
-
-                filepath = ''
-                for tasks_res in tasks_result:
-                    data = await tasks_res.read_data_from_file()
-                    filepath = data['original_file_full_path']
-                    data['status'] = 'translating'
-                    await tasks_res.save_request_result_to_file(json.dumps(data))
-
-                # Select chosen tasks only
-                chosen_tasks = []
-
-                for task in tasks:
-                    if task.id.value == task_id:
-                        chosen_tasks.append(task)
-
-                total_test += 1
-
-                valid_tasks_mapper, invalid_tasks_mapper = await read_task_result(
-                    tasks=chosen_tasks,
-                    tasks_result=tasks_result,
-                    translations_history=translations_history
-                )
-
-                success_test += 1
-                print(
-                    f'Test run successfully! Check out testcase here: {filepath}')
-
-            except:
-                print('Test failed!')
-
-        print(f'Total test passed: {success_test}')
-        print(f'Total test failed: {total_test - success_test}')
-        print(f'Total test passed percent: {success_test / total_test * 100}%')
-        print('=============================================================')
-
-    except:
-        traceback.print_exc()
-        return
+        valid_tasks_mapper, invalid_tasks_mapper = await read_task_result(
+            tasks=tasks,
+            tasks_result=tasks_result,
+            translations_history=translations_history
+        )
+        print("=== Test read_task_result: TRUE ===")
+        # print("=== VALID TASKS MAPPER ===\n")
+        # print(valid_tasks_mapper + "\n")
+        # print("=== INVALID TASKS MAPPER ===\n")
+        # print(invalid_tasks_mapper)
+        # print("=== Test read_task_result: TRUE  ===")
+    except Exception as e:
+        print(e)
+        print("=== Test read_task_result: FALSE ===")
 
 
 async def test_mark_invalid_tasks():
-    print('=====================test_mark_invalid_tasks=====================')
-    seed = 31415
-    random.seed(seed)
-    print(f'Random seed is {seed}')
+    print("---->>>>>>> Test mark_invalid_tasks <<<<<<<<<<<<----")
 
+    print("TEST1: ")
     try:
-        tasks: List[TranslationRequestEntity]
-        tasks_result: List[TranslationRequestResultEntity]
-        translations_history: List[TranslationHistoryEntity]
+        print("INIT ARGUMENT SUCCESS")
+        invalid_tasks_mapper = {}
+        await mark_invalid_tasks(invalid_tasks_mapper)
+        print("---- Test mark_invalid_tasks in testcase 1: TRUE ----")
+    except Exception as e:
+        print(e)
+        print("---- Test mark_invalid_tasks in testcase 1: FALSE ----")
 
-        # Get task from database
-        tasks = await translation_request_repository.find_many(
-            params={
-                'task_name': {
-                    '$in': [TranslationTaskNameEnum.public_file_translation.value, TranslationTaskNameEnum.private_file_translation.value]
-                }
-            }
+    print("TEST 2: ")
+    try:
+        # print("task init: ")
+        new_request = TranslationRequestEntity(
+            TranslationRequestProps(
+                creator_id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
+                creator_type="end_user",
+                task_name='public_plain_text_translation',
+                step_status="closed",
+                current_step="detecting_language",
+                create_at=Date(2022, 3, 31),
+                _cls="LanguageDetectionRequestOrmEntity"
+            )
         )
+        tran = TranslationRequestResultEntity(
+            TranslationRequestResultProps(
+                task_id=new_request.id,
+                step=new_request.props.current_step,
+            )
+        )
+        tasks = [tran]
 
-        tasks_id = list(map(lambda task: task.id.value, tasks))
+        # print("task_res init: ")
+        new_request_res = TranslationRequestEntity(
+            TranslationRequestProps(
+                id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
+                creator_id=ID("377b5a56-51bd-40e7-8b52-73060e5f8c32"),
+                creator_type="end_user",
+                task_name='public_plain_text_translation',
+                step_status="closed",
+                current_step="detecting_language",
+                create_at=Date(2022, 3, 31),
+                update_at=Date(2022, 3, 31),
+                _cls="LanguageDetectionRequestOrmEntity",
+                file_path="1648110413183__660c1f23-6d26-41e8-a5dd-736c44248d0e.json"
+            )
+        )
+        task_res = TranslationRequestResultEntity(
+            TranslationRequestResultProps(
+                task_id=new_request_res.id,
+                step=new_request_res.props.current_step
+            )
+        )
+        # print(task_res)
+        tasks_result = [task_res]
 
-        print(f'Total tasks: {len(tasks)}')
-        print(f'Total test is total tasks: {len(tasks)}')
+        # print("history init ")
+        new_request_his = TranslationRequestEntity(
+            TranslationRequestProps(
+                creator_id=ID("76b76d60-2682-4c53-b092-c8262a353dba"),
+                creator_type=CreatorTypeEnum.end_user.value,
+                task_name=TranslationTaskNameEnum.public_plain_text_translation.value,
+                step_status=StepStatusEnum.not_yet_processed.value,
+                current_step=TranslationTaskStepEnum.detecting_language.value
+            )
+        )
+        tran_history = TranslationHistoryEntity(
+            TranslationHistoryProps(
+                creator_id=new_request_his.props.creator_id,
+                task_id=new_request_his.id,
+                translation_type=new_request_his.props.task_name,
+                status=TranslationHistoryStatus.translating.value,
+                file_path="1648110429829__89aa81e5-6dca-4589-afc4-af2f56d9cb9f.json"
+            )
+        )
+        translations_history = [tran_history]
 
-        total_test = 0
-        success_test = 0
-
-        for task_id in tasks_id:
-            try:
-                # Get translation request result and transaltion history
-                tasks_result_and_trans_history_req = [
-                    translation_request_result_repository.find_many(
-                        params=dict(
-                            task_id={
-                                '$in': list(map(lambda t: UUID(t), [task_id]))
-                            },
-                            step=TranslationTaskStepEnum.translating_language.value
-                        )
-                    ),
-                    translation_history_repository.find_many(
-                        params=dict(
-                            task_id={
-                                '$in': list(map(lambda t: UUID(t), [task_id]))
-                            }
-                        )
-                    )
-                ]
-
-                tasks_result, translations_history = await asyncio.gather(*tasks_result_and_trans_history_req)
-
-                # Modify tasks result and translation history
-                for trans_his in translations_history:
-                    trans_his.props.status = TranslationHistoryStatus.translating.value
-
-                filepath = ''
-                for tasks_res in tasks_result:
-                    data = await tasks_res.read_data_from_file()
-                    filepath = data['original_file_full_path']
-                    data['status'] = 'translating'
-                    await tasks_res.save_request_result_to_file(json.dumps(data))
-
-                # Select chosen tasks only
-                chosen_tasks = []
-
-                for task in tasks:
-                    if task.id.value == task_id:
-                        chosen_tasks.append(task)
-
-                valid_tasks_mapper, invalid_tasks_mapper = await read_task_result(
-                    tasks=chosen_tasks,
-                    tasks_result=tasks_result,
-                    translations_history=translations_history
-                )
-
-                total_test += 1
-
-                await mark_invalid_tasks(invalid_tasks_mapper)
-
-                success_test += 1
-                print(
-                    f'Test run successfully! Check out testcase here: {filepath}')
-
-            except:
-                print('Test failed!')
-
-        print(f'Total test passed: {success_test}')
-        print(f'Total test failed: {total_test - success_test}')
-        print(f'Total test passed percent: {success_test / total_test * 100}%')
-        print('=============================================================')
-
-    except:
-        traceback.print_exc()
-        return
+        print("INIT ARGUMENT SUCCESS")
+        invalid_tasks_mapper = {0: {
+            'task_result': tasks_result,
+            'trans_history': translations_history,
+            'task': tasks
+        }}
+        await mark_invalid_tasks(invalid_tasks_mapper)
+        print("---- Test mark_invalid_tasks in testcase 1: TRUE ----")
+    except Exception as e:
+        print(e)
+        print("---- Test mark_invalid_tasks in testcase 2: FALSE ----")
 
 
 async def test_execute_in_batch():
-    print('=====================test_execute_in_batch=====================')
-    seed = 31415
-    random.seed(seed)
-    print(f'Random seed is {seed}')
+    print("---->>>>>>> Test execute_in_batch <<<<<<<<<<<<----")
+    from modules.system_setting.database.repository import SystemSettingRepository
 
+    system_setting_repository = SystemSettingRepository()
+    system_setting = await system_setting_repository.find_one({})
+
+    ALLOWED_CONCURRENT_REQUEST = system_setting.props.translation_api_allowed_concurrent_req
+
+    print("TEST 1: ")
     try:
-        tasks: List[TranslationRequestEntity]
-        tasks_result: List[TranslationRequestResultEntity]
-        translations_history: List[TranslationHistoryEntity]
+        print("INIT ARGUMENT SUCCESS")
+        valid_tasks_mapper = []
+        await execute_in_batch(valid_tasks_mapper, [], ALLOWED_CONCURRENT_REQUEST)
+        print("Test execute_in_batch in testcase 1: TRUE")
+    except Exception as e:
+        print(e)
+        print("Test execute_in_batch in testcase 1: FALSE")
 
-        # Get task from database
-        tasks = await translation_request_repository.find_many(
-            params={
-                'task_name': {
-                    '$in': [TranslationTaskNameEnum.public_file_translation.value, TranslationTaskNameEnum.private_file_translation.value]
-                }
-            }
-        )
+    print("TEST 2: ")
+    try:
+        await execute_in_batch([], [], None)
+        print("Test execute_in_batch in test case 2: TRUE")
+    except Exception as e:
+        print(e)
+        print("Test execute_in_batch in test case 2: FALSE")
 
-        tasks_id = list(map(lambda task: task.id.value, tasks))
+    # try:
+    #     tasks: List[TranslationRequestEntity]
+    #     tasks_result: List[TranslationRequestResultEntity]
+    #     translations_history: List[TranslationHistoryEntity]
 
-        print(f'Total tasks: {len(tasks)}')
-        print(f'Total test is total tasks: {len(tasks)}')
-
-        total_test = 0
-        success_test = 0
-
-        for task_id in tasks_id:
-            try:
-                # Get translation request result and transaltion history
-                tasks_result_and_trans_history_req = [
-                    translation_request_result_repository.find_many(
-                        params=dict(
-                            task_id={
-                                '$in': list(map(lambda t: UUID(t), [task_id]))
-                            },
-                            step=TranslationTaskStepEnum.translating_language.value
-                        )
-                    ),
-                    translation_history_repository.find_many(
-                        params=dict(
-                            task_id={
-                                '$in': list(map(lambda t: UUID(t), [task_id]))
-                            }
-                        )
-                    )
-                ]
-
-                tasks_result, translations_history = await asyncio.gather(*tasks_result_and_trans_history_req)
-
-                # Modify tasks result and translation history
-                for trans_his in translations_history:
-                    trans_his.props.status = TranslationHistoryStatus.translating.value
-
-                filepath = ''
-                for tasks_res in tasks_result:
-                    data = await tasks_res.read_data_from_file()
-                    filepath = data['original_file_full_path']
-                    data['status'] = 'translating'
-                    await tasks_res.save_request_result_to_file(json.dumps(data))
-
-                # Select chosen tasks only
-                chosen_tasks = []
-
-                for task in tasks:
-                    if task.id.value == task_id:
-                        chosen_tasks.append(task)
-
-                valid_tasks_mapper, invalid_tasks_mapper = await read_task_result(
-                    tasks=chosen_tasks,
-                    tasks_result=tasks_result,
-                    translations_history=translations_history
-                )
-
-                await mark_invalid_tasks(invalid_tasks_mapper)
-
-                valid_tasks_id = list(
-                    map(lambda t: t, list(valid_tasks_mapper)))
-                chunked_tasks_id = list(chunk_arr(valid_tasks_id, 1))
-
-                total_test += 1
-
-                for chunk in chunked_tasks_id:
-                    await execute_in_batch(valid_tasks_mapper, chunk, 1)
-
-                success_test += 1
-                print(
-                    f'Test run successfully! Check out testcase here: {filepath}')
-
-            except:
-                print('Test failed!')
-
-        print(f'Total test passed: {success_test}')
-        print(f'Total test failed: {total_test - success_test}')
-        print(f'Total test passed percent: {success_test / total_test * 100}%')
-        print('=============================================================')
-
-    except:
-        traceback.print_exc()
-        return
+    # except Exception as e:
+    #     print(e)
+    #     return
 
 
 async def test_main():
-    print('=====================test_main===============================')
+    print("---- Test main ----")
+    await main()
     try:
         await main()
-        print('Test main successfully!')
-    except:
-        traceback.print_exc()
-        print('Test main failed!')
-        return
-
+        print('Test translate_plain_text_created_by_public_request TRUE')
+    except Exception as e:
+        print(e)
+        print('Test translate_plain_text_created_by_public_request FALSE')
 
 async def test_all():
     await test_read_task_result()
