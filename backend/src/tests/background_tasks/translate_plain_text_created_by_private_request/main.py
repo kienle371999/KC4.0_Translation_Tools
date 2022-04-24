@@ -1,4 +1,5 @@
 # from email.mime import image
+import random
 from datetime import datetime
 from sqlite3 import Date
 from typing import Union
@@ -59,19 +60,10 @@ async def test_read_task_result():
 
     try:
         # print("task init: ")
-        for x in df:
+        for x in range(5):
+            print("Test case " + x + ": \n")
             data = df.get(1)
-            new_request = TranslationRequestEntity(
-                TranslationRequestProps(
-                    creator_id=data.creator_id,
-                    creator_type=data.creator_type,
-                    task_name=data.task_name,
-                    step_status=data.step_status,
-                    current_step=data.current_step,
-                    create_at=Date(2022, 3, 24),
-                    _cls=data._cls
-                )
-            )
+            new_request = create_new_request(df.get(random.randint(0, 4)))
             tran = TranslationRequestResultEntity(
                 TranslationRequestResultProps(
                     task_id=new_request.id,
@@ -81,20 +73,7 @@ async def test_read_task_result():
             tasks = [tran]
 
             # print("task_res init: ")
-            new_request_res = TranslationRequestEntity(
-                TranslationRequestProps(
-                    id=ID(data.id),
-                    creator_id=ID(data.creator_id),
-                    creator_type=data.creator_type,
-                    task_name=data.task_name,
-                    step_status=data.step_status,
-                    current_step=data.current_step,
-                    create_at=Date(2022, 3, 24),
-                    update_at=Date(2022, 3, 24),
-                    _cls=data._cls,
-                    file_path=data.file_path
-                )
-            )
+            new_request_res = create_new_request(df.get(random.randint(0, 4)))
             task_res = TranslationRequestResultEntity(
                 TranslationRequestResultProps(
                     task_id=new_request_res.id,
@@ -105,15 +84,7 @@ async def test_read_task_result():
             tasks_result = [task_res]
 
             # print("history init ")
-            new_request_his = TranslationRequestEntity(
-                TranslationRequestProps(
-                    creator_id=ID(data.id),
-                    creator_type=CreatorTypeEnum.end_user.value,
-                    task_name=TranslationTaskNameEnum.private_plain_text_translation.value,
-                    step_status=StepStatusEnum.not_yet_processed.value,
-                    current_step=TranslationTaskStepEnum.detecting_language.value
-                )
-            )
+            new_request_his = create_new_request(df.get(random.randint(0, 4)))
             tran_history = TranslationHistoryEntity(
                 TranslationHistoryProps(
                     creator_id=new_request_his.props.creator_id,
@@ -154,17 +125,7 @@ async def test_mark_invalid_tasks():
         df = read_data()
         for x in df:
             # print("task init: ")
-            new_request = TranslationRequestEntity(
-                TranslationRequestProps(
-                    creator_id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
-                    creator_type="end_user",
-                    task_name='private_plain_text_translation',
-                    step_status="closed",
-                    current_step="detecting_language",
-                    create_at=Date(2022, 3, 24),
-                    _cls="LanguageDetectionRequestOrmEntity"
-                )
-            )
+            new_request = create_new_request(df.get(random.randint(0, 4)))
             tran = TranslationRequestResultEntity(
                 TranslationRequestResultProps(
                     task_id=new_request.id,
@@ -174,20 +135,7 @@ async def test_mark_invalid_tasks():
             tasks = [tran]
 
             # print("task_res init: ")
-            new_request_res = TranslationRequestEntity(
-                TranslationRequestProps(
-                    id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
-                    creator_id=ID("377b5a56-51bd-40e7-8b52-73060e5f8c32"),
-                    creator_type="end_user",
-                    task_name='private_plain_text_translation',
-                    step_status="closed",
-                    current_step="detecting_language",
-                    create_at=Date(2022, 3, 24),
-                    update_at=Date(2022, 3, 24),
-                    _cls="LanguageDetectionRequestOrmEntity",
-                    file_path="1648110413183__660c1f23-6d26-41e8-a5dd-736c44248d0e.json"
-                )
-            )
+            new_request_res = create_new_request(df.get(random.randint(0, 4)))
             task_res = TranslationRequestResultEntity(
                 TranslationRequestResultProps(
                     task_id=new_request_res.id,
@@ -198,15 +146,7 @@ async def test_mark_invalid_tasks():
             tasks_result = [task_res]
 
             # print("history init ")
-            new_request_his = TranslationRequestEntity(
-                TranslationRequestProps(
-                    creator_id=ID("76b76d60-2682-4c53-b092-c8262a353dba"),
-                    creator_type=CreatorTypeEnum.end_user.value,
-                    task_name=TranslationTaskNameEnum.private_plain_text_translation.value,
-                    step_status=StepStatusEnum.not_yet_processed.value,
-                    current_step=TranslationTaskStepEnum.detecting_language.value
-                )
-            )
+            new_request_his = create_new_request(df.get(random.randint(0, 4)))
             tran_history = TranslationHistoryEntity(
                 TranslationHistoryProps(
                     creator_id=new_request_his.props.creator_id,
@@ -283,3 +223,16 @@ def read_data():
     df = pandas.read_csv('data.csv',
                          )
     print(df)
+
+def create_new_request(data):
+    return TranslationRequestEntity(
+            TranslationRequestProps(
+            creator_id=data.creator_id,
+            creator_type=data.creator_type,
+            task_name=data.task_name,
+            step_status=data.step_status,
+            current_step=data.current_step,
+            create_at=Date(2022, 3, 24),
+            _cls=data._cls
+        )
+    )
