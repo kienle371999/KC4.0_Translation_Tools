@@ -1,4 +1,5 @@
 # from email.mime import image
+import random
 from datetime import datetime
 from sqlite3 import Date
 from typing import Union
@@ -35,6 +36,7 @@ from modules.translation_request.domain.entities.translation_request import Tran
     TranslationRequestProps
 from modules.translation_request.domain.entities.translation_request_result import TranslationRequestResultEntity, \
     TranslationRequestResultProps
+import pandas
 
 translation_request_repository = TranslationRequestRepository()
 translation_request_result_repository = TranslationRequestResultRepository()
@@ -43,7 +45,7 @@ system_setting_repository = SystemSettingRepository()
 
 
 async def test_read_task_result():
-
+    df = read_data()
     # df = pandas.read_csv('src/tests/background_tasks/delete_invalid_file/sample_data/task_file_data.csv')
     print("===>>>>>>> Test read_task_result <<<<<<<<<<<<===")
     print("TEST 1")
@@ -55,84 +57,51 @@ async def test_read_task_result():
         print("=== Test read_task_result in testcase 1: FALSE ===")
 
     print("TEST 2")
+
     try:
         # print("task init: ")
-        new_request = TranslationRequestEntity(
-            TranslationRequestProps(
-                creator_id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
-                creator_type="end_user",
-                task_name='private_plain_text_translation',
-                step_status="closed",
-                current_step="detecting_language",
-                create_at=Date(2022, 3, 24),
-                _cls="LanguageDetectionRequestOrmEntity"
+        for x in range(5):
+            print("Test case " + x + ": \n")
+            data = df.get(1)
+            new_request = create_new_request(df.get(random.randint(0, 4)))
+            tran = TranslationRequestResultEntity(
+                TranslationRequestResultProps(
+                    task_id=new_request.id,
+                    step=new_request.props.current_step,
+                )
             )
-        )
-        tran = TranslationRequestResultEntity(
-            TranslationRequestResultProps(
-                task_id=new_request.id,
-                step=new_request.props.current_step,
-            )
-        )
-        tasks = [tran]
+            tasks = [tran]
 
-        # print("task_res init: ")
-        new_request_res = TranslationRequestEntity(
-            TranslationRequestProps(
-                id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
-                creator_id=ID("377b5a56-51bd-40e7-8b52-73060e5f8c32"),
-                creator_type="end_user",
-                task_name='private_plain_text_translation',
-                step_status="closed",
-                current_step="detecting_language",
-                create_at=Date(2022, 3, 24),
-                update_at=Date(2022, 3, 24),
-                _cls="LanguageDetectionRequestOrmEntity",
-                file_path="1648110413183__660c1f23-6d26-41e8-a5dd-736c44248d0e.json"
+            # print("task_res init: ")
+            new_request_res = create_new_request(df.get(random.randint(0, 4)))
+            task_res = TranslationRequestResultEntity(
+                TranslationRequestResultProps(
+                    task_id=new_request_res.id,
+                    step=new_request_res.props.current_step
+                )
             )
-        )
-        task_res = TranslationRequestResultEntity(
-            TranslationRequestResultProps(
-                task_id=new_request_res.id,
-                step=new_request_res.props.current_step
-            )
-        )
-        # print(task_res)
-        tasks_result = [task_res]
+            # print(task_res)
+            tasks_result = [task_res]
 
-        # print("history init ")
-        new_request_his = TranslationRequestEntity(
-            TranslationRequestProps(
-                creator_id=ID("76b76d60-2682-4c53-b092-c8262a353dba"),
-                creator_type=CreatorTypeEnum.end_user.value,
-                task_name=TranslationTaskNameEnum.private_plain_text_translation.value,
-                step_status=StepStatusEnum.not_yet_processed.value,
-                current_step=TranslationTaskStepEnum.detecting_language.value
+            # print("history init ")
+            new_request_his = create_new_request(df.get(random.randint(0, 4)))
+            tran_history = TranslationHistoryEntity(
+                TranslationHistoryProps(
+                    creator_id=new_request_his.props.creator_id,
+                    task_id=new_request_his.id,
+                    translation_type=new_request_his.props.task_name,
+                    status=TranslationHistoryStatus.translating.value,
+                    file_path=data.file_path
+                )
             )
-        )
-        tran_history = TranslationHistoryEntity(
-            TranslationHistoryProps(
-                creator_id=new_request_his.props.creator_id,
-                task_id=new_request_his.id,
-                translation_type=new_request_his.props.task_name,
-                status=TranslationHistoryStatus.translating.value,
-                file_path="1648110429829__89aa81e5-6dca-4589-afc4-af2f56d9cb9f.json"
-            )
-        )
-        translations_history = [tran_history]
-        print("INIT ARGUMENT SUCCESS")
+            translations_history = [tran_history]
+            print("INIT ARGUMENT SUCCESS")
 
-        valid_tasks_mapper, invalid_tasks_mapper = await read_task_result(
-            tasks=tasks,
-            tasks_result=tasks_result,
-            translations_history=translations_history
-        )
-        print("=== Test read_task_result: TRUE ===")
-        # print("=== VALID TASKS MAPPER ===\n")
-        # print(valid_tasks_mapper + "\n")
-        # print("=== INVALID TASKS MAPPER ===\n")
-        # print(invalid_tasks_mapper)
-        # print("=== Test read_task_result: TRUE  ===")
+            valid_tasks_mapper, invalid_tasks_mapper = await read_task_result(
+                tasks=tasks,
+                tasks_result=tasks_result,
+                translations_history=translations_history
+            )
     except Exception as e:
         print(e)
         print("=== Test read_task_result: FALSE ===")
@@ -153,79 +122,50 @@ async def test_mark_invalid_tasks():
 
     print("TEST 2: ")
     try:
-        # print("task init: ")
-        new_request = TranslationRequestEntity(
-            TranslationRequestProps(
-                creator_id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
-                creator_type="end_user",
-                task_name='private_plain_text_translation',
-                step_status="closed",
-                current_step="detecting_language",
-                create_at=Date(2022, 3, 24),
-                _cls="LanguageDetectionRequestOrmEntity"
+        df = read_data()
+        for x in df:
+            # print("task init: ")
+            new_request = create_new_request(df.get(random.randint(0, 4)))
+            tran = TranslationRequestResultEntity(
+                TranslationRequestResultProps(
+                    task_id=new_request.id,
+                    step=new_request.props.current_step,
+                )
             )
-        )
-        tran = TranslationRequestResultEntity(
-            TranslationRequestResultProps(
-                task_id=new_request.id,
-                step=new_request.props.current_step,
-            )
-        )
-        tasks = [tran]
+            tasks = [tran]
 
-        # print("task_res init: ")
-        new_request_res = TranslationRequestEntity(
-            TranslationRequestProps(
-                id=ID("660c1f23-6d26-41e8-a5dd-736c44248d0e"),
-                creator_id=ID("377b5a56-51bd-40e7-8b52-73060e5f8c32"),
-                creator_type="end_user",
-                task_name='private_plain_text_translation',
-                step_status="closed",
-                current_step="detecting_language",
-                create_at=Date(2022, 3, 24),
-                update_at=Date(2022, 3, 24),
-                _cls="LanguageDetectionRequestOrmEntity",
-                file_path="1648110413183__660c1f23-6d26-41e8-a5dd-736c44248d0e.json"
+            # print("task_res init: ")
+            new_request_res = create_new_request(df.get(random.randint(0, 4)))
+            task_res = TranslationRequestResultEntity(
+                TranslationRequestResultProps(
+                    task_id=new_request_res.id,
+                    step=new_request_res.props.current_step
+                )
             )
-        )
-        task_res = TranslationRequestResultEntity(
-            TranslationRequestResultProps(
-                task_id=new_request_res.id,
-                step=new_request_res.props.current_step
-            )
-        )
-        # print(task_res)
-        tasks_result = [task_res]
+            # print(task_res)
+            tasks_result = [task_res]
 
-        # print("history init ")
-        new_request_his = TranslationRequestEntity(
-            TranslationRequestProps(
-                creator_id=ID("76b76d60-2682-4c53-b092-c8262a353dba"),
-                creator_type=CreatorTypeEnum.end_user.value,
-                task_name=TranslationTaskNameEnum.private_plain_text_translation.value,
-                step_status=StepStatusEnum.not_yet_processed.value,
-                current_step=TranslationTaskStepEnum.detecting_language.value
+            # print("history init ")
+            new_request_his = create_new_request(df.get(random.randint(0, 4)))
+            tran_history = TranslationHistoryEntity(
+                TranslationHistoryProps(
+                    creator_id=new_request_his.props.creator_id,
+                    task_id=new_request_his.id,
+                    translation_type=new_request_his.props.task_name,
+                    status=TranslationHistoryStatus.translating.value,
+                    file_path="1648110429829__89aa81e5-6dca-4589-afc4-af2f56d9cb9f.json"
+                )
             )
-        )
-        tran_history = TranslationHistoryEntity(
-            TranslationHistoryProps(
-                creator_id=new_request_his.props.creator_id,
-                task_id=new_request_his.id,
-                translation_type=new_request_his.props.task_name,
-                status=TranslationHistoryStatus.translating.value,
-                file_path="1648110429829__89aa81e5-6dca-4589-afc4-af2f56d9cb9f.json"
-            )
-        )
-        translations_history = [tran_history]
+            translations_history = [tran_history]
 
-        print("INIT ARGUMENT SUCCESS")
-        invalid_tasks_mapper = {0: {
-            'task_result': tasks_result,
-            'trans_history': translations_history,
-            'task': tasks
-        }}
-        await mark_invalid_tasks(invalid_tasks_mapper)
-        print("=== Test mark_invalid_tasks in testcase 1: TRUE ===")
+            print("INIT ARGUMENT SUCCESS")
+            invalid_tasks_mapper = {0: {
+                'task_result': tasks_result,
+                'trans_history': translations_history,
+                'task': tasks
+            }}
+            await mark_invalid_tasks(invalid_tasks_mapper)
+            print("=== Test mark_invalid_tasks in testcase " + df.index(x) + ": TRUE ===")
     except Exception as e:
         print(e)
         print("=== Test mark_invalid_tasks in testcase 2: FALSE ===")
@@ -257,25 +197,42 @@ async def test_execute_in_batch():
     except Exception as e:
         print(e)
         print("Test execute_in_batch in test case 2: FALSE")
-    
+
     # try:
     #     tasks: List[TranslationRequestEntity]
     #     tasks_result: List[TranslationRequestResultEntity]
     #     translations_history: List[TranslationHistoryEntity]
 
-        
     # except Exception as e:
     #     print(e)
     #     return
 
 
-
 async def test_main():
     print("=== Test main ===")
-    await main()
+    read_data()
     try:
-        await main()
+        main()
         print('Test translate_plain_text_created_by_private_request TRUE')
     except Exception as e:
         print(e)
         print('Test translate_plain_text_created_by_private_request FALSE')
+
+
+def read_data():
+    df = pandas.read_csv('data.csv',
+                         )
+    print(df)
+
+def create_new_request(data):
+    return TranslationRequestEntity(
+            TranslationRequestProps(
+            creator_id=data.creator_id,
+            creator_type=data.creator_type,
+            task_name=data.task_name,
+            step_status=data.step_status,
+            current_step=data.current_step,
+            create_at=Date(2022, 3, 24),
+            _cls=data._cls
+        )
+    )
